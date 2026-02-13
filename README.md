@@ -50,7 +50,7 @@ The **facilitator pattern** ensures atomicity: payment and access happen togethe
 ### Setup
 
 ```bash
-git clone https://github.com/AkaWolfcito/dengrow-x402.git
+git clone https://github.com/wolfcito/dengrow-x402.git
 cd dengrow-x402
 pnpm install
 cp .env.example .env
