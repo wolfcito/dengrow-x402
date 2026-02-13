@@ -115,9 +115,10 @@ export async function getCurrentBlockHeight(): Promise<number> {
 
 export async function waterPlant(
   tokenId: number,
-  senderKey: string
+  senderKey: string,
+  opts?: { fee?: number; nonce?: number }
 ): Promise<{ success: boolean; txid: string }> {
-  const tx = await makeContractCall({
+  const txOpts: any = {
     contractAddress: CONTRACTS.game.address,
     contractName: CONTRACTS.game.name,
     functionName: 'water',
@@ -127,7 +128,10 @@ export async function waterPlant(
     anchorMode: AnchorMode.Any,
     postConditionMode: PostConditionMode.Deny,
     postConditions: [],
-  });
+  };
+  if (opts?.fee != null) txOpts.fee = opts.fee;
+  if (opts?.nonce != null) txOpts.nonce = opts.nonce;
+  const tx = await makeContractCall(txOpts);
 
   const result = await broadcastTransaction(tx, network);
   if (typeof result === 'string') {
