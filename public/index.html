@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DenGrow x402: Autonomous Plant Economy</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+    .glow { box-shadow: 0 0 20px rgba(34, 197, 94, 0.15); }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-gray-800 py-8 px-4">
+    <div class="max-w-4xl mx-auto text-center">
+      <h1 class="text-4xl font-bold mb-2">
+        <span class="text-green-400">DenGrow</span> x402
+      </h1>
+      <p class="text-xl text-gray-400">Autonomous Plant Economy on Stacks</p>
+      <p class="text-sm text-gray-500 mt-2">
+        AI agents pay micropayments to grow plants that fund real-world tree planting
+      </p>
+    </div>
+  </header>
+
+  <!-- How x402 Works -->
+  <section class="max-w-4xl mx-auto px-4 py-10">
+    <h2 class="text-2xl font-semibold mb-4 text-green-400">How x402 Works</h2>
+    <div class="bg-gray-900 rounded-lg p-6 font-mono text-sm border border-gray-800">
+      <div class="space-y-2 text-gray-300">
+        <p>1. Agent sends <span class="text-yellow-400">GET /plant/101</span></p>
+        <p>2. Server responds <span class="text-red-400">HTTP 402</span> + payment-required header</p>
+        <p>3. Agent signs STX transfer (does NOT broadcast)</p>
+        <p>4. Agent retries with <span class="text-blue-400">payment-signature</span> header</p>
+        <p>5. Server settles via facilitator &rarr; grants access</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Endpoint Cards -->
+  <section class="max-w-4xl mx-auto px-4 pb-10">
+    <h2 class="text-2xl font-semibold mb-6 text-green-400">Endpoints</h2>
+    <div class="grid gap-6 md:grid-cols-1">
+
+      <!-- Card 1: /water -->
+      <div class="bg-gray-900 rounded-lg p-6 border border-gray-800 glow">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="bg-blue-600 text-xs font-bold px-2 py-1 rounded">POST</span>
+          <code class="text-lg">/water/:tokenId</code>
+          <span class="ml-auto text-green-400 font-mono text-sm">0.001 STX</span>
+        </div>
+        <p class="text-gray-400 text-sm mb-3">
+          <strong>Pattern:</strong> paymentMiddleware (fixed price per request)
+        </p>
+        <p class="text-gray-400 text-sm mb-4">
+          Waters a DenGrow plant on-chain. The service wallet executes the contract call.
+          Each water adds growth points until the plant graduates as a Tree.
+        </p>
+        <div class="flex gap-2 mb-3">
+          <input id="water-id" type="number" value="101" min="1"
+            class="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 w-24 text-sm" />
+          <button onclick="tryEndpoint('water')"
+            class="bg-green-600 hover:bg-green-700 px-4 py-1.5 rounded text-sm font-medium transition">
+            Try it (shows 402)
+          </button>
+        </div>
+        <pre id="water-result" class="bg-gray-800 rounded p-3 text-xs text-gray-400 min-h-[60px] hidden"></pre>
+      </div>
+
+      <!-- Card 2: /plant -->
+      <div class="bg-gray-900 rounded-lg p-6 border border-gray-800 glow">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="bg-emerald-600 text-xs font-bold px-2 py-1 rounded">GET</span>
+          <code class="text-lg">/plant/:tokenId</code>
+          <span class="ml-auto text-green-400 font-mono text-sm">0.0001 / 0.001 STX</span>
+        </div>
+        <p class="text-gray-400 text-sm mb-3">
+          <strong>Pattern:</strong> tieredPayment (price depends on tier)
+        </p>
+        <p class="text-gray-400 text-sm mb-4">
+          <strong>Basic</strong> (0.0001 STX): stage, growth points, owner.<br />
+          <strong>Premium</strong> (0.001 STX): + impact score, pool stats, can-water status.
+        </p>
+        <div class="flex gap-2 mb-3">
+          <input id="plant-id" type="number" value="101" min="1"
+            class="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 w-24 text-sm" />
+          <select id="plant-tier"
+            class="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm">
+            <option value="basic">basic</option>
+            <option value="premium">premium</option>
+          </select>
+          <button onclick="tryEndpoint('plant')"
+            class="bg-green-600 hover:bg-green-700 px-4 py-1.5 rounded text-sm font-medium transition">
+            Try it (shows 402)
+          </button>
+        </div>
+        <pre id="plant-result" class="bg-gray-800 rounded p-3 text-xs text-gray-400 min-h-[60px] hidden"></pre>
+      </div>
+
+      <!-- Card 3: /feed -->
+      <div class="bg-gray-900 rounded-lg p-6 border border-gray-800 glow">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="bg-emerald-600 text-xs font-bold px-2 py-1 rounded">GET</span>
+          <code class="text-lg">/feed</code>
+          <span class="ml-auto text-green-400 font-mono text-sm">10 free/hr, then 0.001 STX</span>
+        </div>
+        <p class="text-gray-400 text-sm mb-3">
+          <strong>Pattern:</strong> paymentRateLimit (free tier + pay-when-exceeded)
+        </p>
+        <p class="text-gray-400 text-sm mb-4">
+          Recent on-chain activity from the DenGrow game contract.
+          First 10 requests per hour are free, then 0.001 STX per request.
+        </p>
+        <div class="flex gap-2 mb-3">
+          <button onclick="tryEndpoint('feed')"
+            class="bg-green-600 hover:bg-green-700 px-4 py-1.5 rounded text-sm font-medium transition">
+            Try it (free tier)
+          </button>
+        </div>
+        <pre id="feed-result" class="bg-gray-800 rounded p-3 text-xs text-gray-400 min-h-[60px] hidden"></pre>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="max-w-4xl mx-auto px-4 pb-10">
+    <h2 class="text-2xl font-semibold mb-4 text-green-400">Architecture</h2>
+    <div class="bg-gray-900 rounded-lg p-6 border border-gray-800 font-mono text-xs text-gray-300 overflow-x-auto">
+<pre>
+  Agent (STX wallet)          DenGrow x402 Server          Stacks Testnet
+  ==================          ====================          ==============
+
+  GET /plant/101
+    ──────────────────────►
+                              402 + payment-required
+    ◄──────────────────────
+
+  Signs STX transfer
+  (does NOT broadcast)
+
+  GET /plant/101
+  + payment-signature header
+    ──────────────────────►
+                              Settle via facilitator ──►   Broadcast tx
+                              ◄── settlement confirmed ──  Confirmed
+
+                              Read plant-storage
+                                contract on-chain    ──►   get-plant(101)
+                              ◄──────────────────────────  {stage, GP, ...}
+
+                              200 + plant data
+    ◄──────────────────────
+
+  POST /water/101
+  + payment-signature header
+    ──────────────────────►
+                              Settle payment
+                              Call water(101)         ──►   plant-game-v3
+                              ◄──────────────────────────  tx confirmed
+
+                              200 + {txid, success}
+    ◄──────────────────────
+</pre>
+    </div>
+  </section>
+
+  <!-- Vision -->
+  <section class="max-w-4xl mx-auto px-4 pb-10">
+    <h2 class="text-2xl font-semibold mb-4 text-green-400">Vision</h2>
+    <div class="bg-gray-900 rounded-lg p-6 border border-gray-800">
+      <p class="text-gray-300 mb-3">
+        In production, x402 enables an <strong>autonomous plant economy</strong>:
+      </p>
+      <ul class="text-gray-400 text-sm space-y-2 list-disc pl-5">
+        <li>AI agents pay micropayments to water plants they don't own</li>
+        <li>Plant owners earn STX when agents care for their plants</li>
+        <li>Graduated plants (Trees) fund real-world tree planting via the Impact Pool</li>
+        <li>Delegated care: agents can sponsor growth on behalf of users</li>
+        <li>All payments are on-chain, atomic, and verifiable</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Links -->
+  <footer class="border-t border-gray-800 py-6 px-4">
+    <div class="max-w-4xl mx-auto flex flex-wrap gap-6 justify-center text-sm text-gray-500">
+      <a href="https://github.com/AkaWolfcito/dengrow-x402" target="_blank" class="hover:text-green-400 transition">GitHub Repo</a>
+      <a href="https://dengrow.vercel.app" target="_blank" class="hover:text-green-400 transition">DenGrow Web App</a>
+      <a href="https://x.com/denlabs_app" target="_blank" class="hover:text-green-400 transition">@denlabs_app</a>
+      <span>Built for x402 Stacks Challenge</span>
+    </div>
+  </footer>
+
+  <script>
+    const BASE = window.location.origin;
+
+    async function tryEndpoint(type) {
+      const resultEl = document.getElementById(`${type}-result`);
+      resultEl.classList.remove('hidden');
+      resultEl.textContent = 'Loading...';
+
+      try {
+        let url, opts = {};
+        if (type === 'water') {
+          const id = document.getElementById('water-id').value;
+          url = `${BASE}/water/${id}`;
+          opts = { method: 'POST' };
+        } else if (type === 'plant') {
+          const id = document.getElementById('plant-id').value;
+          const tier = document.getElementById('plant-tier').value;
+          url = `${BASE}/plant/${id}?tier=${tier}`;
+        } else {
+          url = `${BASE}/feed?limit=5`;
+        }
+
+        const resp = await fetch(url, opts);
+        const headers = {};
+        for (const [k, v] of resp.headers.entries()) {
+          if (k.startsWith('payment') || k === 'content-type') {
+            headers[k] = v.length > 100 ? v.slice(0, 100) + '...' : v;
+          }
+        }
+
+        let body;
+        try { body = await resp.json(); } catch { body = await resp.text(); }
+
+        resultEl.textContent = JSON.stringify(
+          { status: resp.status, headers, body },
+          null,
+          2
+        );
+      } catch (err) {
+        resultEl.textContent = `Error: ${err.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
