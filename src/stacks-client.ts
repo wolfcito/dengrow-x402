@@ -156,7 +156,7 @@ export async function mintWithTier(
     senderKey,
     network,
     anchorMode: AnchorMode.Any,
-    postConditionMode: PostConditionMode.Deny,
+    postConditionMode: PostConditionMode.Allow,
     postConditions: [],
   });
 
