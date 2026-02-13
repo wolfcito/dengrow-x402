@@ -8,6 +8,7 @@
     "agent": "tsx src/agent.ts",
     "mint-demo": "tsx scripts/mint-demo-plants.ts",
     "check-plants": "tsx scripts/check-plants.ts",
+    "pre-water": "tsx scripts/pre-water.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
