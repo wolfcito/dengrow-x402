@@ -19,12 +19,17 @@ import { getPremiumPlantData } from './impact-score';
 import {
   CONTRACTS,
   DEPLOYER,
-  FACILITATOR_URL,
   PRICES,
   STAGE_NAMES,
   STACKS_API,
 } from './contracts';
-import { getAddressFromPrivateKey, TransactionVersion } from '@stacks/transactions';
+import {
+  getAddressFromPrivateKey,
+  TransactionVersion,
+  deserializeTransaction,
+  broadcastTransaction,
+} from '@stacks/transactions';
+import { StacksTestnet } from '@stacks/network';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -43,12 +48,89 @@ const SERVICE_ADDRESS = getAddressFromPrivateKey(
 
 const PORT = parseInt(process.env.PORT || '3402', 10);
 
+// Self-facilitator: point to ourselves so we broadcast Stacks txs directly
+const SELF_FACILITATOR_URL = `http://localhost:${PORT}`;
+
+const stacksNetwork = new StacksTestnet();
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // Serve demo page
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// ---------------------------------------------------------------------------
+// Self-hosted Facilitator (x402 V2 endpoints)
+// Broadcasts signed Stacks transactions directly — no external facilitator needed
+// ---------------------------------------------------------------------------
+
+app.get('/supported', (_req, res) => {
+  res.json({
+    kinds: [
+      {
+        x402Version: 2,
+        scheme: 'exact',
+        network: 'stacks:2147483648',
+      },
+    ],
+  });
+});
+
+app.post('/verify', (req, res) => {
+  try {
+    const { paymentPayload } = req.body;
+    const txHex = paymentPayload?.payload?.transaction;
+    if (!txHex) {
+      return res.json({ isValid: false, invalidReason: 'No transaction in payload' });
+    }
+    // Deserialize to verify it's a valid Stacks tx
+    const rawHex = txHex.startsWith('0x') ? txHex.slice(2) : txHex;
+    deserializeTransaction(rawHex);
+    return res.json({ isValid: true });
+  } catch (err: any) {
+    return res.json({ isValid: false, invalidReason: err.message });
+  }
+});
+
+app.post('/settle', async (req, res) => {
+  try {
+    const { paymentPayload, paymentRequirements } = req.body;
+    const txHex = paymentPayload?.payload?.transaction;
+    if (!txHex) {
+      return res.status(400).json({ success: false, errorReason: 'No transaction' });
+    }
+
+    // Deserialize and broadcast
+    const rawHex = txHex.startsWith('0x') ? txHex.slice(2) : txHex;
+    const tx = deserializeTransaction(rawHex);
+    const result = await broadcastTransaction(tx, stacksNetwork);
+
+    let txid: string;
+    if (typeof result === 'string') {
+      txid = result;
+    } else if ('txid' in result) {
+      txid = result.txid;
+    } else if ('error' in result) {
+      return res.status(400).json({
+        success: false,
+        errorReason: (result as any).reason || 'Broadcast failed',
+      });
+    } else {
+      txid = String(result);
+    }
+
+    return res.json({
+      success: true,
+      payer: paymentPayload?.accepted?.payTo || '',
+      transaction: txid,
+      network: 'stacks:2147483648',
+    });
+  } catch (err: any) {
+    console.error('Settle error:', err.message);
+    return res.status(500).json({ success: false, errorReason: err.message });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Health
@@ -69,7 +151,7 @@ app.post(
     amount: STXtoMicroSTX(PRICES.water),
     payTo: SERVICE_ADDRESS,
     network: 'testnet',
-    facilitatorUrl: FACILITATOR_URL,
+    facilitatorUrl: SELF_FACILITATOR_URL,
     description: 'Water a DenGrow plant on Stacks testnet',
   }),
   async (req, res) => {
@@ -123,7 +205,7 @@ app.get(
     {
       payTo: SERVICE_ADDRESS,
       network: 'testnet',
-      facilitatorUrl: FACILITATOR_URL,
+      facilitatorUrl: SELF_FACILITATOR_URL,
     }
   ),
   async (req, res) => {
@@ -173,7 +255,7 @@ app.get(
       amount: STXtoMicroSTX(PRICES.feed),
       payTo: SERVICE_ADDRESS,
       network: 'testnet',
-      facilitatorUrl: FACILITATOR_URL,
+      facilitatorUrl: SELF_FACILITATOR_URL,
       description: 'DenGrow activity feed (beyond free tier)',
     },
   }),
@@ -236,7 +318,7 @@ async function getRecentEvents(limit: number): Promise<FeedEvent[]> {
 app.listen(PORT, () => {
   console.log(`\n  DenGrow x402 server running on http://localhost:${PORT}`);
   console.log(`  Service wallet: ${SERVICE_ADDRESS}`);
-  console.log(`  Facilitator:    ${FACILITATOR_URL}`);
+  console.log(`  Facilitator:    ${SELF_FACILITATOR_URL} (self-hosted)`);
   console.log(`  Network:        testnet\n`);
   console.log('  Endpoints:');
   console.log(`    POST /water/:tokenId   — 0.001 STX (paymentMiddleware)`);
