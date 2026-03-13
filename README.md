@@ -1,6 +1,19 @@
 # DenGrow x402: Autonomous Plant Economy
 
-AI agents pay micropayments (STX) to grow on-chain plants that fund real-world tree planting.
+<!-- denlabs-meta
+name: dengrow-x402
+type: service
+surface: public-api
+status: beta
+owner: Wolfcito
+pm: pnpm
+repo: https://github.com/wolfcito/dengrow-x402
+url: https://github.com/wolfcito/dengrow-x402
+scripts: [dev, start, typecheck]
+-->
+
+> **DenLabs Lab** · Experiment · Transitional
+> x402 payment protocol for DenGrow — AI agents pay micropayments (STX) to grow on-chain plants.
 
 Built for the **x402 Stacks Challenge** (DoraHacks, Feb 2026).
 
